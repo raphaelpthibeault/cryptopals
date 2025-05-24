@@ -2,11 +2,13 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <stdarg.h>
 
-struct byte_array 
-alloc_bytearray(size_t len) 
+byte_array_t 
+alloc_byte_array(size_t len) 
 {
-	struct byte_array ba;
+	byte_array_t ba;
 	ba.len = len;
 	ba.bytes = malloc(len * sizeof(uint8_t));
 	memset(ba.bytes, 0, len);
@@ -14,10 +16,26 @@ alloc_bytearray(size_t len)
 }
 
 void 
-free_bytearray(struct byte_array ba)
+free_byte_array(byte_array_t ba)
 {
 	if (ba.bytes != NULL) {
 		free(ba.bytes);
+	}
+}
+
+void
+free_byte_arrays(byte_array_t ba, ...)
+{
+	free_byte_array(ba);
+
+	va_list ap;
+	va_start(ap, ba);
+	while (1) {
+		byte_array_t x = va_arg(ap, byte_array_t);
+		if (x.bytes == NULL) {
+			return;
+		}
+		free_byte_array(x);
 	}
 }
 
@@ -32,8 +50,8 @@ hex_char_to_byte(uint8_t c) {
 	}
 }
 
-struct byte_array
-hex_to_bytearray(const char *hex_string)
+byte_array_t
+hex_to_byte_array(const char *hex_string)
 {
 	/*
 		* we're talking converting to an array of bytes,
@@ -41,12 +59,12 @@ hex_to_bytearray(const char *hex_string)
 		* byte_array being an array of 8-bit entries uint8_t obviously 
 		* in 8 bits we can fit 2 hex, [hex1,hex2]
 		* hex1 - high nibble,  << 2
-		* hex2 - high nibble, << 0
+		* hex2 - low nibble, << 0
 		* slight complication with even/odd input length
 		* */
 
 	size_t len = strlen(hex_string);
-	struct byte_array ba = alloc_bytearray((len+1)/2);
+	byte_array_t ba = alloc_byte_array((len+1)/2);
 	uint8_t byte;
 
 	size_t off = len&1; /* 1 if odd, 0 if even */
@@ -56,6 +74,36 @@ hex_to_bytearray(const char *hex_string)
 	}	
 
 	return ba;
+}
+
+uint8_t hex_lookup[16] = {
+	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+};
+
+uint8_t *
+byte_array_to_hex(const byte_array_t ba)
+{
+	/* in 8 bits we have a high nibble and a low nibble each being a hex
+	 * [hex1][hex2]
+	 * meaning 4-bit values
+	 * */	
+
+	size_t num_4_bit_strings = (ba.len << 1) + 1;
+	uint8_t *ret = malloc(num_4_bit_strings * sizeof(uint8_t));
+	memset(ret, 0, num_4_bit_strings);
+
+	uint8_t *p = ret;
+
+	for (size_t i = 0; i < ba.len; ++i, p+=2) {
+		// want to get the same byte twice
+		// if i is even: left nibble, else: right nibble
+
+		p[0] = hex_lookup[(ba.bytes[i]>>4)&0xf];
+		p[1] = hex_lookup[ba.bytes[i]&0xf];
+	}
+	
+	ret[num_4_bit_strings-1] = '\0';
+	return ret;
 }
 
 uint8_t base64_lookup[64] = {
@@ -76,7 +124,7 @@ three_bytes_to_base64(uint8_t *p, uint8_t b0, uint8_t b1, uint8_t b2)
 }
 
 uint8_t *
-bytearray_to_base64(struct byte_array ba)
+byte_array_to_base64(byte_array_t ba)
 {
 	/* 3 byte (8-bit) values are joined together in a string 
 	 * groups of 6 bits (6 bits have a maximum of 26 = 64 different binary values) are converted into individual numbers from start to end 
@@ -88,7 +136,7 @@ bytearray_to_base64(struct byte_array ba)
 	size_t base64_string_size = (((ba.len + 2) / 3) << 2) + 1; // 4 characters for each 3 byte chunk and null byte
 
 	uint8_t *base64_str = malloc(base64_string_size * sizeof(uint8_t));
-	memset(base64_str, 0, base64_string_size * sizeof(uint8_t));
+	memset(base64_str, 0, base64_string_size);
 
 	uint8_t *p = base64_str;
 	
@@ -112,9 +160,36 @@ uint8_t *
 hex_to_base64(const char *hex_string)
 {
 	/* always operate on raw bytes, never encoded strings ; only use hex and base64 for pretty-printing */
-	struct byte_array ba = hex_to_bytearray(hex_string);
-	uint8_t *base64_str = bytearray_to_base64(ba);
-	free_bytearray(ba);
+	byte_array_t ba = hex_to_byte_array(hex_string);
+	uint8_t *base64_str = byte_array_to_base64(ba);
+	free_byte_array(ba);
 	return base64_str;
 }
+
+byte_array_t
+xor_byte_arrays(const byte_array_t a, const byte_array_t b)
+{
+	size_t count = (a.len > b.len) ? b.len : a.len;
+	byte_array_t ret = alloc_byte_array(count);
+
+	for (size_t i = 0; i < count; ++i) {
+		ret.bytes[i] = a.bytes[i] ^ b.bytes[i];
+	}
+
+	return ret;
+}
+
+uint8_t *
+xor_hex_strings(uint8_t *a, uint8_t *b)
+{
+	byte_array_t x = hex_to_byte_array(a);
+	byte_array_t y = hex_to_byte_array(b);
+	byte_array_t z = xor_byte_arrays(x, y);
+	uint8_t *ret = byte_array_to_hex(z);
+
+	// ret is alloc'd, so we are safe to free z
+	free_byte_arrays(x, y, z, NO_BA);
+	return ret;
+}
+
 

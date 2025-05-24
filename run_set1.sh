@@ -9,3 +9,11 @@ rm set1_challenge1
 echo "-------END OUTPUT-------"
 echo ""
 
+echo "Running set1_challenge2"
+echo "---------OUTPUT---------"
+gcc -o set1_challenge2 set1_challenge2.c lib/utils.c -I./
+./set1_challenge2 1c0111001f010100061a024b53535009181c 686974207468652062756c6c277320657965
+rm set1_challenge2
+echo "-------END OUTPUT-------"
+echo ""
+
