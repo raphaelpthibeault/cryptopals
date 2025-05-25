@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
@@ -179,6 +180,14 @@ xor_byte_arrays(const byte_array_t a, const byte_array_t b)
 	return ret;
 }
 
+void
+single_byte_xor(byte_array_t out, const byte_array_t a, uint8_t c)
+{
+	for (size_t i = 0; i < a.len; ++i) {
+		out.bytes[i] = a.bytes[i] ^ c;
+	}
+}
+
 uint8_t *
 xor_hex_strings(uint8_t *a, uint8_t *b)
 {
@@ -192,4 +201,13 @@ xor_hex_strings(uint8_t *a, uint8_t *b)
 	return ret;
 }
 
+
+void 
+print_byte_array_ascii(const byte_array_t x) 
+{
+	for (size_t i = 0; i < x.len ; i++) {
+		printf("%c", x.bytes[i]);
+	}
+	printf("\n");
+}
 

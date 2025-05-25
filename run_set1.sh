@@ -17,3 +17,10 @@ rm set1_challenge2
 echo "-------END OUTPUT-------"
 echo ""
 
+echo "Running set1_challenge3"
+echo "---------OUTPUT---------"
+gcc -o set1_challenge3 set1_challenge3.c lib/utils.c cryptography/cryptopals.c -I./
+./set1_challenge3 1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736
+rm set1_challenge3
+echo "-------END OUTPUT-------"
+echo ""
